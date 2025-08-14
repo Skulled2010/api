@@ -2,7 +2,7 @@ from flask import Flask, jsonify, request
 import os
 import json
 import requests
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone  # Đảm bảo dùng timezone thay UTC
 import traceback
 
 app = Flask(__name__)
