@@ -10,6 +10,19 @@ api_keys = json.loads(os.environ.get("API_KEYS", "[]"))
 # Định nghĩa main_control_key từ biến môi trường
 MAIN_CONTROL_KEY = os.environ.get("MAIN_CONTROL_KEY", "default_control_key")
 
+@app.route('/api/<key>', methods=['GET'])
+def check_key(key):
+    current_time = datetime.utcnow()
+    for item in api_keys:
+        if item.get("key") == key:
+            key_time = datetime.fromisoformat(item.get("time").replace("Z", "+00:00"))
+            time_remaining = (key_time - current_time).total_seconds()
+            if time_remaining > 0:
+                return jsonify({"valid": True, "time_remaining": max(0, time_remaining)})
+            else:
+                return jsonify({"valid": False, "message": "Key đã hết hạn."})
+    return jsonify({"valid": False, "message": "Key không hợp lệ."})
+
 @app.route('/api/add-key', methods=['GET'])
 def add_new_key():
     current_time = datetime.utcnow()
@@ -47,19 +60,6 @@ def add_new_key():
         })
     except ValueError:
         return jsonify({"valid": False, "message": "Thời gian phải là số hợp lệ."}), 400
-
-@app.route('/api/<key>', methods=['GET'])
-def check_key(key):
-    current_time = datetime.utcnow()
-    for item in api_keys:
-        if item.get("key") == key:
-            key_time = datetime.fromisoformat(item.get("time").replace("Z", "+00:00"))
-            time_remaining = (key_time - current_time).total_seconds()
-            if time_remaining > 0:
-                return jsonify({"valid": True, "time_remaining": max(0, time_remaining)})
-            else:
-                return jsonify({"valid": False, "message": "Key đã hết hạn."})
-    return jsonify({"valid": False, "message": "Key không hợp lệ."})
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
