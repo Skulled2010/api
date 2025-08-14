@@ -17,6 +17,10 @@ MAIN_CONTROL_KEY = os.environ.get("MAIN_CONTROL_KEY", "default_control_key")
 RENDER_API_KEY = os.environ.get("RENDER_API_KEY")
 RENDER_SERVICE_ID = os.environ.get("RENDER_SERVICE_ID")
 
+# Debug print to verify environment variables
+print(f"[DEBUG] RENDER_API_KEY: {RENDER_API_KEY}")
+print(f"[DEBUG] RENDER_SERVICE_ID: {RENDER_SERVICE_ID}")
+
 def update_render_env(api_keys_list):
     """Update API_KEYS environment variable on Render with detailed error handling"""
     if not RENDER_API_KEY or not RENDER_SERVICE_ID:
