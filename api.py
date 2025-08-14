@@ -14,21 +14,23 @@ api_keys = json.loads(os.environ.get("API_KEYS", "[]"))
 MAIN_CONTROL_KEY = os.environ.get("MAIN_CONTROL_KEY", "default_control_key")
 
 # Render API info
+RENDER_API_KEY = os.environ.get("RENDER_API_KEY")
 RENDER_SERVICE_ID = os.environ.get("RENDER_SERVICE_ID")
 
 # Debug print to verify environment variables
+print(f"[DEBUG] RENDER_API_KEY: {RENDER_API_KEY}")
 print(f"[DEBUG] RENDER_SERVICE_ID: {RENDER_SERVICE_ID}")
 
 def update_render_env(api_keys_list):
     """Update API_KEYS environment variable on Render with detailed error handling"""
-    if not RENDER_SERVICE_ID:
-        error_msg = "Missing RENDER_SERVICE_ID"
+    if not RENDER_API_KEY or not RENDER_SERVICE_ID:
+        error_msg = "Missing RENDER_API_KEY or RENDER_SERVICE_ID"
         print(f"[ERROR] {error_msg}")
         return False, error_msg
 
     url = f"https://api.render.com/v1/services/{RENDER_SERVICE_ID}/env-vars"
     headers = {
-        "Authorization": f"Bearer {RENDER_SERVICE_ID}",
+        "Authorization": f"Bearer {RENDER_API_KEY}",  # Sử dụng RENDER_API_KEY thay vì RENDER_SERVICE_ID
         "Accept": "application/json",
         "Content-Type": "application/json"
     }
