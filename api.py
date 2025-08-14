@@ -109,8 +109,7 @@ def check_key(key):
 
 @app.route('/api/add-key', methods=['GET'])
 def add_new_key():
-    current_time = datetime.now(UTC)
-
+    current_time = datetime.utcnow().replace(tzinfo=timezone.utc)  # Sửa để tương thích Python 3.10
     control_key = request.args.get("control_key")
     new_key = request.args.get("key")
     expire_months = request.args.get("expire_months")
@@ -130,10 +129,14 @@ def add_new_key():
         if expire_months_float <= 0 or max_users_int <= 0:
             return jsonify({"valid": False, "message": "Expiration time and max_users must be greater than 0."})
 
+        # Kiểm tra key trùng lặp
+        if any(item["key"] == new_key for item in api_keys):
+            return jsonify({"valid": False, "message": "Key already exists."}), 400
+
         expiration_time = current_time + timedelta(days=expire_months_float * 30)
         new_key_entry = {
             "key": new_key,
-            "time": expiration_time.isoformat() + "Z",
+            "time": expiration_time.isoformat(),  # Không thêm "Z", giữ định dạng chuẩn
             "users": [],
             "max_users": max_users_int
         }
@@ -150,7 +153,7 @@ def add_new_key():
             "valid": True,
             "message": "New key has been added and saved on Render.",
             "new_key": new_key,
-            "expiration_time": expiration_time.isoformat() + "Z",
+            "expiration_time": expiration_time.isoformat(),  # Trả về định dạng chuẩn
             "max_users": max_users_int,
             "users": []
         })
@@ -158,6 +161,58 @@ def add_new_key():
         return jsonify({"valid": False, "message": "expire_months and max_users must be valid numbers."}), 400
     except Exception as e:
         print(f"[ERROR] {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({"valid": False, "message": f"Internal server error: {str(e)}"}), 500
+
+@app.route('/api/<key>', methods=['GET'])
+def check_key(key):
+    try:
+        current_time = datetime.utcnow().replace(tzinfo=timezone.utc)  # Sửa để tương thích Python 3.10
+        user = request.args.get("user")
+
+        if not user:
+            return jsonify({"valid": False, "message": "Missing required parameter: user"}), 400
+
+        global api_keys
+        for item in api_keys:
+            if item.get("key") == key:
+                try:
+                    key_time = datetime.fromisoformat(item["time"])  # Bỏ .replace("Z", "+00:00")
+                except ValueError as e:
+                    print(f"[ERROR] Failed to parse expiration time for key {key}: {str(e)}")
+                    return jsonify({"valid": False, "message": f"Invalid expiration time format: {str(e)}"}), 500
+
+                time_remaining = (key_time - current_time).total_seconds()
+
+                if time_remaining <= 0:
+                    return jsonify({"valid": False, "message": "Key has expired."})
+
+                item.setdefault("users", [])
+                item.setdefault("max_users", 1)
+
+                if user in item["users"]:
+                    return jsonify({
+                        "valid": True,
+                        "time_remaining": time_remaining,
+                        "users": item["users"],
+                        "max_users": item["max_users"]
+                    })
+
+                if len(item["users"]) < item["max_users"]:
+                    item["users"].append(user)
+                    update_render_env(api_keys)
+                    return jsonify({
+                        "valid": True,
+                        "time_remaining": time_remaining,
+                        "users": item["users"],
+                        "max_users": item["max_users"]
+                    })
+
+                return jsonify({"valid": False, "message": "Max user limit reached."})
+
+        return jsonify({"valid": False, "message": "Key is invalid."})
+    except Exception as e:
+        print(f"[ERROR] Internal error in check_key: {str(e)}")
         print(traceback.format_exc())
         return jsonify({"valid": False, "message": f"Internal server error: {str(e)}"}), 500
 
