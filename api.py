@@ -18,6 +18,7 @@ RENDER_API_KEY = os.environ.get("RENDER_API_KEY")
 RENDER_SERVICE_ID = os.environ.get("RENDER_SERVICE_ID")
 
 def update_render_env(api_keys_list):
+    global RENDER_API_KEY, RENDER_SERVICE_ID
     """Update API_KEYS environment variable on Render with detailed error handling"""
     if not RENDER_API_KEY or not RENDER_SERVICE_ID:
         error_msg = "Missing RENDER_API_KEY or RENDER_SERVICE_ID"
