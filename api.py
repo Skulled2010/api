@@ -77,7 +77,7 @@ def check_key(key):
                         "valid": True,
                         "time_remaining": time_remaining,
                         "users": item["users"],
-                        "max_users": item["max_users"
+                        "max_users": item["max_users"]  # Sửa lỗi: thêm "]"
                     })
 
                 if len(item["users"]) < item["max_users"]:
@@ -87,7 +87,7 @@ def check_key(key):
                         "valid": True,
                         "time_remaining": time_remaining,
                         "users": item["users"],
-                        "max_users": item["max_users"]
+                        "max_users": item["max_users"]  # Sửa lỗi: thêm "]"
                     })
 
                 return jsonify({"valid": False, "message": "Max user limit reached."})
