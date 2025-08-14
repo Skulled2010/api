@@ -3,6 +3,7 @@ import os
 import json
 import requests
 from datetime import datetime, timedelta, UTC
+import traceback  # For detailed error logging
 
 app = Flask(__name__)
 
@@ -19,7 +20,9 @@ RENDER_SERVICE_ID = os.environ.get("RENDER_SERVICE_ID")
 def update_render_env(api_keys_list):
     """Update API_KEYS environment variable on Render with detailed error handling"""
     if not RENDER_API_KEY or not RENDER_SERVICE_ID:
-        return False, "Missing RENDER_API_KEY or RENDER_SERVICE_ID"
+        error_msg = "Missing RENDER_API_KEY or RENDER_SERVICE_ID"
+        print(f"[ERROR] {error_msg}")
+        return False, error_msg
 
     url = f"https://api.render.com/v1/services/{RENDER_SERVICE_ID}/env-vars"
     headers = {
@@ -33,7 +36,8 @@ def update_render_env(api_keys_list):
     }]
     
     try:
-        resp = requests.put(url, headers=headers, data=json.dumps(data), timeout=15)  # Increased timeout
+        print(f"[INFO] Attempting to update API_KEYS with {len(api_keys_list)} keys")
+        resp = requests.put(url, headers=headers, data=json.dumps(data), timeout=15)
         resp.raise_for_status()  # Raise exception if not successful
         print(f"[INFO] API_KEYS updated successfully on Render. Total keys: {len(api_keys_list)}")
         return True, None
@@ -94,7 +98,7 @@ def add_new_key():
         new_key_entry = {"key": new_key, "time": expiration_time.isoformat() + "Z"}
 
         # Backup current api_keys
-        original_api_keys = api_keys.copy()  # Safe to copy now that api_keys is ensured
+        original_api_keys = api_keys.copy()
         api_keys.append(new_key_entry)
         print(f"[INFO] Added new key '{new_key}' with expiration date {expiration_time.isoformat()}Z.")
 
@@ -113,9 +117,13 @@ def add_new_key():
             "expiration_time": expiration_time.isoformat() + "Z",
             "current_api_keys": json.dumps(api_keys)  # Show updated list for verification
         })
-    except ValueError:
-        print("[ERROR] Expiration time must be a valid number.")
+    except ValueError as e:
+        print(f"[ERROR] Expiration time must be a valid number. Details: {str(e)}")
         return jsonify({"valid": false, "message": "Expiration time must be a valid number."}), 400
+    except Exception as e:
+        print(f"[ERROR] Unexpected error in add_new_key: {str(e)}")
+        print(f"[DEBUG] Stack trace: {traceback.format_exc()}")
+        return jsonify({"valid": false, "message": f"Internal server error: {str(e)}"}), 500
 
 if __name__ == '__main__':
     print(f"[INFO] Starting API server with {len(api_keys)} keys loaded.")
