@@ -7,7 +7,6 @@ app = Flask(__name__)
 
 # Lấy danh sách key từ biến môi trường
 api_keys = json.loads(os.environ.get("API_KEYS", "[]"))
-# Định nghĩa main_control_key từ biến môi trường
 MAIN_CONTROL_KEY = os.environ.get("MAIN_CONTROL_KEY", "default_control_key")
 
 @app.route('/api/hello', methods=['GET'])
@@ -22,35 +21,41 @@ def check_key(key):
             key_time = datetime.fromisoformat(item.get("time").replace("Z", "+00:00"))
             time_remaining = (key_time - current_time).total_seconds()
             if time_remaining > 0:
-                return jsonify({"valid": True, "time_remaining": max(0, time_remaining)})
+                return jsonify({"valid": True, "time_remaining_seconds": max(0, time_remaining)})
             else:
                 return jsonify({"valid": False, "message": "Key đã hết hạn."})
     return jsonify({"valid": False, "message": "Key không hợp lệ."})
 
-@app.route('/api/<main_control_key>/<new_key>/<duration>', methods=['POST'])
-def add_new_key(main_control_key, new_key, duration):
-    current_time = datetime.utcnow()
-    if main_control_key != MAIN_CONTROL_KEY:
-        return jsonify({"valid": False, "message": "Main control key không hợp lệ."})
+@app.route('/api/add_key', methods=['POST'])
+def add_key():
+    data = request.get_json()
 
-    try:
-        duration_months = int(duration)
-        if duration_months <= 0:
-            return jsonify({"valid": False, "message": "Thời gian phải lớn hơn 0."})
+    # Kiểm tra control key
+    if data.get("control_key") != MAIN_CONTROL_KEY:
+        return jsonify({"success": False, "message": "Sai MAIN_CONTROL_KEY"}), 403
 
-        expiration_time = current_time + timedelta(days=duration_months * 30)
-        new_key_entry = {"key": new_key, "time": expiration_time.isoformat() + "Z"}
-        api_keys.append(new_key_entry)
-        os.environ["API_KEYS"] = json.dumps(api_keys)
+    new_key = data.get("key")
+    expire_months = float(data.get("expire_months", 1))  # mặc định 1 tháng
 
-        return jsonify({
-            "valid": True,
-            "message": "Key mới đã được thêm.",
-            "new_key": new_key,
-            "expiration_time": expiration_time.isoformat() + "Z"
-        })
-    except ValueError:
-        return jsonify({"valid": False, "message": "Thời gian phải là số nguyên."})
+    if not new_key:
+        return jsonify({"success": False, "message": "Thiếu key"}), 400
+
+    # Tính thời gian hết hạn
+    months_int = int(expire_months)  # phần nguyên
+    extra_days = int((expire_months - months_int) * 30)  # phần thập phân quy ra ngày (xấp xỉ 30 ngày/tháng)
+
+    expire_time = datetime.utcnow() + timedelta(days=months_int * 30 + extra_days)
+    expire_time_iso = expire_time.isoformat() + "Z"
+
+    # Thêm vào list
+    api_keys.append({"key": new_key, "time": expire_time_iso})
+
+    return jsonify({
+        "success": True,
+        "message": "Thêm key thành công",
+        "expire_time": expire_time_iso,
+        "total_keys": len(api_keys)
+    })
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
