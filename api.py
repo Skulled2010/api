@@ -46,52 +46,66 @@ def update_render_env(api_keys_list):
 def hello():
     return jsonify({"message": "Hello! This is your API."})
 
+from datetime import datetime, timedelta, timezone  # Thay đổi import: dùng timezone thay vì UTC
+
+# ... (giữ nguyên phần code khác)
+
 @app.route('/api/<key>', methods=['GET'])
 def check_key(key):
-    current_time = datetime.now(UTC)
-    user = request.args.get("user")
+    try:
+        current_time = datetime.utcnow().replace(tzinfo=timezone.utc)  # Thay datetime.now(UTC)
+        user = request.args.get("user")
 
-    if not user:
-        return jsonify({"valid": False, "message": "Missing required parameter: user"}), 400
+        if not user:
+            return jsonify({"valid": False, "message": "Missing required parameter: user"}), 400
 
-    global api_keys
-    for item in api_keys:
-        if item.get("key") == key:
-            # Parse expiration time
-            key_time = datetime.fromisoformat(item["time"].replace("Z", "+00:00"))
-            time_remaining = (key_time - current_time).total_seconds()
+        global api_keys
+        for item in api_keys:
+            if item.get("key") == key:
+                # Parse expiration time
+                try:
+                    key_time = datetime.fromisoformat(item["time"].replace("Z", "+00:00"))
+                except ValueError as e:
+                    print(f"[ERROR] Failed to parse expiration time for key {key}: {str(e)}")
+                    return jsonify({"valid": False, "message": f"Invalid expiration time format: {str(e)}"}), 500
 
-            if time_remaining <= 0:
-                return jsonify({"valid": False, "message": "Key has expired."})
+                time_remaining = (key_time - current_time).total_seconds()
 
-            # Ensure 'users' and 'max_users' exist
-            item.setdefault("users", [])
-            item.setdefault("max_users", 1)
+                if time_remaining <= 0:
+                    return jsonify({"valid": False, "message": "Key has expired."})
 
-            # If user already in list → allow
-            if user in item["users"]:
-                return jsonify({
-                    "valid": True,
-                    "time_remaining": time_remaining,
-                    "users": item["users"],
-                    "max_users": item["max_users"]
-                })
+                # Ensure 'users' and 'max_users' exist
+                item.setdefault("users", [])
+                item.setdefault("max_users", 1)
 
-            # If room not full → add user
-            if len(item["users"]) < item["max_users"]:
-                item["users"].append(user)
-                update_render_env(api_keys)
-                return jsonify({
-                    "valid": True,
-                    "time_remaining": time_remaining,
-                    "users": item["users"],
-                    "max_users": item["max_users"]
-                })
+                # If user already in list → allow
+                if user in item["users"]:
+                    return jsonify({
+                        "valid": True,
+                        "time_remaining": time_remaining,
+                        "users": item["users"],
+                        "max_users": item["max_users"]
+                    })
 
-            # Room full → reject
-            return jsonify({"valid": False, "message": "Max user limit reached."})
+                # If room not full → add user
+                if len(item["users"]) < item["max_users"]:
+                    item["users"].append(user)
+                    update_render_env(api_keys)
+                    return jsonify({
+                        "valid": True,
+                        "time_remaining": time_remaining,
+                        "users": item["users"],
+                        "max_users": item["max_users"]
+                    })
 
-    return jsonify({"valid": False, "message": "Key is invalid."})
+                # Room full → reject
+                return jsonify({"valid": False, "message": "Max user limit reached."})
+
+        return jsonify({"valid": False, "message": "Key is invalid."})
+    except Exception as e:
+        print(f"[ERROR] Internal error in check_key: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({"valid": False, "message": f"Internal server error: {str(e)}"}), 500
 
 @app.route('/api/add-key', methods=['GET'])
 def add_new_key():
