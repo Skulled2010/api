@@ -4,7 +4,7 @@ import json
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
-
+print("ok")
 # Lấy danh sách key từ biến môi trường và chuyển thành danh sách Python
 api_keys = json.loads(os.environ.get("API_KEYS", "[]"))
 # Định nghĩa main_control_key từ biến môi trường
