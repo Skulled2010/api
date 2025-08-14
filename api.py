@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
-# Lấy danh sách key từ biến môi trường
+# Load API keys from environment variable
 api_keys = json.loads(os.environ.get("API_KEYS", "[]"))
 
 # Control key
@@ -17,22 +17,22 @@ RENDER_API_KEY = os.environ.get("RENDER_API_KEY")
 RENDER_SERVICE_ID = os.environ.get("RENDER_SERVICE_ID")
 
 def update_render_env(api_keys_list):
-    """Cập nhật biến môi trường API_KEYS trên Render"""
+    """Update API_KEYS environment variable on Render"""
     url = f"https://api.render.com/v1/services/{RENDER_SERVICE_ID}/env-vars"
     headers = {
-        "Authorization": f"Bearer {RENDER_API_KEY}",
+        "Authorization": f"{RENDER_API_KEY}",
         "Accept": "application/json",
         "Content-Type": "application/json"
     }
     data = [{
         "key": "API_KEYS",
-        "value": json.dumps(api_keys_list)
+        "value": json.dumps(api_keys_list, ensure_ascii=False)  # Keep UTF-8 for Vietnamese
     }]
     resp = requests.put(url, headers=headers, data=json.dumps(data))
     if resp.status_code == 200:
-        print("✅ API_KEYS đã được cập nhật trên Render.")
+        print(f"[INFO] API_KEYS updated successfully on Render. Total keys: {len(api_keys_list)}")
     else:
-        print("❌ Lỗi khi cập nhật API_KEYS:", resp.text)
+        print(f"[ERROR] Failed to update API_KEYS: {resp.status_code} - {resp.text}")
 
 @app.route('/api/hello', methods=['GET'])
 def hello():
@@ -46,9 +46,12 @@ def check_key(key):
             key_time = datetime.fromisoformat(item.get("time").replace("Z", "+00:00"))
             time_remaining = (key_time - current_time).total_seconds()
             if time_remaining > 0:
+                print(f"[INFO] Key '{key}' is valid. Time remaining: {time_remaining} seconds.")
                 return jsonify({"valid": True, "time_remaining": max(0, time_remaining)})
             else:
+                print(f"[WARNING] Key '{key}' has expired.")
                 return jsonify({"valid": False, "message": "Key đã hết hạn."})
+    print(f"[WARNING] Key '{key}' is invalid.")
     return jsonify({"valid": False, "message": "Key không hợp lệ."})
 
 @app.route('/api/add-key', methods=['GET'])
@@ -60,22 +63,26 @@ def add_new_key():
     expire_months = request.args.get("expire_months")
 
     if not control_key or not new_key or expire_months is None:
+        print("[ERROR] Missing required parameters when adding new key.")
         return jsonify({"valid": False, "message": "Yêu cầu các tham số: control_key, key, và expire_months."}), 400
 
     if control_key != MAIN_CONTROL_KEY:
+        print("[ERROR] Invalid main control key provided.")
         return jsonify({"valid": False, "message": "Main control key không hợp lệ."})
 
     try:
         expire_months_float = float(expire_months)
         if expire_months_float <= 0:
+            print("[ERROR] Expiration time must be greater than 0.")
             return jsonify({"valid": False, "message": "Thời gian phải lớn hơn 0."})
 
         expiration_time = current_time + timedelta(days=expire_months_float * 30)
         new_key_entry = {"key": new_key, "time": expiration_time.isoformat() + "Z"}
 
         api_keys.append(new_key_entry)
+        print(f"[INFO] Added new key '{new_key}' with expiration date {expiration_time.isoformat()}Z.")
 
-        # Cập nhật biến môi trường trên Render
+        # Update API_KEYS on Render
         update_render_env(api_keys)
 
         return jsonify({
@@ -85,8 +92,10 @@ def add_new_key():
             "expiration_time": expiration_time.isoformat() + "Z"
         })
     except ValueError:
+        print("[ERROR] Expiration time must be a valid number.")
         return jsonify({"valid": False, "message": "Thời gian phải là số hợp lệ."}), 400
 
 if __name__ == '__main__':
+    print(f"[INFO] Starting API server with {len(api_keys)} keys loaded.")
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
