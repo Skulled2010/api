@@ -30,34 +30,22 @@ def check_key(key):
 @app.route('/api/add-key', methods=['POST'])
 def add_new_key():
     current_time = datetime.utcnow()
-    # Lấy dữ liệu từ body của request
     data = request.get_json()
-
-    # Kiểm tra nếu dữ liệu hợp lệ
     if not data or "control_key" not in data or "key" not in data or "expire_months" not in data:
         return jsonify({"valid": False, "message": "Dữ liệu payload không hợp lệ. Yêu cầu 'control_key', 'key', và 'expire_months'."}), 400
-
     control_key = data.get("control_key")
     new_key = data.get("key")
     expire_months = data.get("expire_months")
-
-    # Kiểm tra main_control_key
     if control_key != MAIN_CONTROL_KEY:
         return jsonify({"valid": False, "message": "Main control key không hợp lệ."})
-
     try:
         expire_months_float = float(expire_months)
         if expire_months_float <= 0:
             return jsonify({"valid": False, "message": "Thời gian phải lớn hơn 0."})
-
-        # Tính thời gian hết hạn (dựa trên số ngày từ tháng, 1 tháng ≈ 30 ngày)
         expiration_time = current_time + timedelta(days=expire_months_float * 30)
         new_key_entry = {"key": new_key, "time": expiration_time.isoformat() + "Z"}
         api_keys.append(new_key_entry)
-
-        # Lưu thay đổi (chỉ trong bộ nhớ, không vĩnh viễn trên Render)
         os.environ["API_KEYS"] = json.dumps(api_keys)
-
         return jsonify({
             "valid": True,
             "message": "Key mới đã được thêm.",
