@@ -17,10 +17,13 @@ RENDER_API_KEY = os.environ.get("RENDER_API_KEY")
 RENDER_SERVICE_ID = os.environ.get("RENDER_SERVICE_ID")
 
 def update_render_env(api_keys_list):
-    """Update API_KEYS environment variable on Render"""
+    """Update API_KEYS environment variable on Render with retry mechanism"""
+    if not RENDER_API_KEY or not RENDER_SERVICE_ID:
+        return False, "Missing RENDER_API_KEY or RENDER_SERVICE_ID"
+
     url = f"https://api.render.com/v1/services/{RENDER_SERVICE_ID}/env-vars"
     headers = {
-        "Authorization": f"{RENDER_API_KEY}",
+        "Authorization": f"Bearer {RENDER_API_KEY}",
         "Accept": "application/json",
         "Content-Type": "application/json"
     }
@@ -28,11 +31,18 @@ def update_render_env(api_keys_list):
         "key": "API_KEYS",
         "value": json.dumps(api_keys_list, ensure_ascii=False)  # Keep UTF-8 for Vietnamese
     }]
-    resp = requests.put(url, headers=headers, data=json.dumps(data))
-    if resp.status_code == 200:
-        print(f"[INFO] API_KEYS updated successfully on Render. Total keys: {len(api_keys_list)}")
-    else:
-        print(f"[ERROR] Failed to update API_KEYS: {resp.status_code} - {resp.text}")
+    
+    try:
+        resp = requests.put(url, headers=headers, data=json.dumps(data), timeout=10)
+        if resp.status_code == 200:
+            print(f"[INFO] API_KEYS updated successfully on Render. Total keys: {len(api_keys_list)}")
+            return True, None
+        else:
+            print(f"[ERROR] Failed to update API_KEYS: {resp.status_code} - {resp.text}")
+            return False, f"API update failed: {resp.status_code} - {resp.text}"
+    except requests.RequestException as e:
+        print(f"[ERROR] Network error updating API_KEYS: {str(e)}")
+        return False, f"Network error: {str(e)}"
 
 @app.route('/api/hello', methods=['GET'])
 def hello():
@@ -79,11 +89,16 @@ def add_new_key():
         expiration_time = current_time + timedelta(days=expire_months_float * 30)
         new_key_entry = {"key": new_key, "time": expiration_time.isoformat() + "Z"}
 
+        # Thêm key vào danh sách tạm thời
         api_keys.append(new_key_entry)
         print(f"[INFO] Added new key '{new_key}' with expiration date {expiration_time.isoformat()}Z.")
 
-        # Update API_KEYS on Render
-        update_render_env(api_keys)
+        # Cập nhật Environment Variables trên Render
+        success, error_msg = update_render_env(api_keys)
+        if not success:
+            # Rollback nếu cập nhật thất bại
+            api_keys.pop()
+            return jsonify({"valid": False, "message": f"Thêm key thất bại. Lỗi: {error_msg}"}), 500
 
         return jsonify({
             "valid": True,
