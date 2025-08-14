@@ -4,11 +4,16 @@ import json
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
-print("new")
-# Lấy danh sách key từ biến môi trường và chuyển thành danh sách Python
+
+# Lấy danh sách key từ biến môi trường
 api_keys = json.loads(os.environ.get("API_KEYS", "[]"))
 # Định nghĩa main_control_key từ biến môi trường
 MAIN_CONTROL_KEY = os.environ.get("MAIN_CONTROL_KEY", "default_control_key")
+print(MAIN_CONTROL_KEY)
+
+@app.route('/api/hello', methods=['GET'])
+def hello():
+    return jsonify({"message": "Xin chào! Đây là API của bạn."})
 
 @app.route('/api/<key>', methods=['GET'])
 def check_key(key):
