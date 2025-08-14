@@ -37,7 +37,7 @@ def update_render_env(api_keys_list):
     
     try:
         print(f"[INFO] Attempting to update API_KEYS with {len(api_keys_list)} keys")
-        resp = requests.put(url, headers=headers, data=json.dumps(data), timeout=15)
+        resp = requests.put(url, headers=headers, data=json.dumps(data), timeout=15)  # Increased timeout
         resp.raise_for_status()  # Raise exception if not successful
         print(f"[INFO] API_KEYS updated successfully on Render. Total keys: {len(api_keys_list)}")
         return True, None
@@ -108,10 +108,10 @@ def add_new_key():
             # Rollback if update fails
             api_keys = original_api_keys
             print(f"[ERROR] Rollback performed due to: {error_msg}")
-            return jsonify({"valid": false, "message": f"Failed to add key. Error: {error_msg}"}), 500
+            return jsonify({"valid": False, "message": f"Failed to add key. Error: {error_msg}"}), 500
 
         return jsonify({
-            "valid": true,
+            "valid": True,
             "message": "New key has been added and saved on Render.",
             "new_key": new_key,
             "expiration_time": expiration_time.isoformat() + "Z",
@@ -119,11 +119,11 @@ def add_new_key():
         })
     except ValueError as e:
         print(f"[ERROR] Expiration time must be a valid number. Details: {str(e)}")
-        return jsonify({"valid": false, "message": "Expiration time must be a valid number."}), 400
+        return jsonify({"valid": False, "message": "Expiration time must be a valid number."}), 400
     except Exception as e:
         print(f"[ERROR] Unexpected error in add_new_key: {str(e)}")
         print(f"[DEBUG] Stack trace: {traceback.format_exc()}")
-        return jsonify({"valid": false, "message": f"Internal server error: {str(e)}"}), 500
+        return jsonify({"valid": False, "message": f"Internal server error: {str(e)}"}), 500
 
 if __name__ == '__main__':
     print(f"[INFO] Starting API server with {len(api_keys)} keys loaded.")
