@@ -27,7 +27,7 @@ def update_render_env(api_keys_list):
 
     url = f"https://api.render.com/v1/services/{RENDER_SERVICE_ID}/env-vars"
     headers = {
-        "Authorization": f"Bearer {RENDER_API_KEY}",
+        "Authorization": f"{RENDER_API_KEY}",
         "Accept": "application/json",
         "Content-Type": "application/json"
     }
