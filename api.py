@@ -18,7 +18,6 @@ RENDER_API_KEY = os.environ.get("RENDER_API_KEY")
 RENDER_SERVICE_ID = os.environ.get("RENDER_SERVICE_ID")
 
 def update_render_env(api_keys_list):
-    global RENDER_API_KEY, RENDER_SERVICE_ID
     """Update API_KEYS environment variable on Render with detailed error handling"""
     if not RENDER_API_KEY or not RENDER_SERVICE_ID:
         error_msg = "Missing RENDER_API_KEY or RENDER_SERVICE_ID"
@@ -27,7 +26,7 @@ def update_render_env(api_keys_list):
 
     url = f"https://api.render.com/v1/services/{RENDER_SERVICE_ID}/env-vars"
     headers = {
-        "Authorization": f"{RENDER_API_KEY}",
+        "Authorization": f"Bearer {RENDER_API_KEY}",
         "Accept": "application/json",
         "Content-Type": "application/json"
     }
@@ -38,7 +37,7 @@ def update_render_env(api_keys_list):
     
     try:
         print(f"[INFO] Attempting to update API_KEYS with {len(api_keys_list)} keys")
-        resp = requests.put(url, headers=headers, data=json.dumps(data), timeout=15)  # Increased timeout
+        resp = requests.put(url, headers=headers, data=json.dumps(data), timeout=15)
         resp.raise_for_status()  # Raise exception if not successful
         print(f"[INFO] API_KEYS updated successfully on Render. Total keys: {len(api_keys_list)}")
         return True, None
