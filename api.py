@@ -5,9 +5,9 @@ from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
-# Lấy danh sách key từ biến môi trường và chuyển thành danh sách Python
+# Lấy danh sách key từ biến môi trường
 api_keys = json.loads(os.environ.get("API_KEYS", "[]"))
-# Định nghĩa main_control_key (lấy từ biến môi trường)
+# Định nghĩa main_control_key từ biến môi trường
 MAIN_CONTROL_KEY = os.environ.get("MAIN_CONTROL_KEY", "default_control_key")
 
 @app.route('/api/hello', methods=['GET'])
@@ -30,21 +30,17 @@ def check_key(key):
 @app.route('/api/<main_control_key>/<new_key>/<duration>', methods=['POST'])
 def add_new_key(main_control_key, new_key, duration):
     current_time = datetime.utcnow()
-    # Kiểm tra main_control_key
     if main_control_key != MAIN_CONTROL_KEY:
         return jsonify({"valid": False, "message": "Main control key không hợp lệ."})
 
     try:
-        duration_months = int(duration)  # Chuyển duration thành số nguyên
+        duration_months = int(duration)
         if duration_months <= 0:
             return jsonify({"valid": False, "message": "Thời gian phải lớn hơn 0."})
 
-        # Tính thời gian hết hạn (thêm duration_months tháng)
-        expiration_time = current_time + timedelta(days=duration_months * 30)  # Giả sử 1 tháng = 30 ngày
+        expiration_time = current_time + timedelta(days=duration_months * 30)
         new_key_entry = {"key": new_key, "time": expiration_time.isoformat() + "Z"}
         api_keys.append(new_key_entry)
-
-        # Cập nhật biến môi trường (chỉ trong bộ nhớ, không lưu vĩnh viễn trên Render)
         os.environ["API_KEYS"] = json.dumps(api_keys)
 
         return jsonify({
