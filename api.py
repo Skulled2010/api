@@ -82,6 +82,8 @@ def add_new_key():
         print("[ERROR] Invalid main control key provided.")
         return jsonify({"valid": False, "message": "Main control key is invalid."})
 
+    # Ensure api_keys is accessible as a global variable
+    global api_keys
     try:
         expire_months_float = float(expire_months)
         if expire_months_float <= 0:
@@ -92,7 +94,7 @@ def add_new_key():
         new_key_entry = {"key": new_key, "time": expiration_time.isoformat() + "Z"}
 
         # Backup current api_keys
-        original_api_keys = api_keys.copy()
+        original_api_keys = api_keys.copy()  # Safe to copy now that api_keys is ensured
         api_keys.append(new_key_entry)
         print(f"[INFO] Added new key '{new_key}' with expiration date {expiration_time.isoformat()}Z.")
 
