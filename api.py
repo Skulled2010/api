@@ -16,7 +16,7 @@ Base = declarative_base()
 class APIKey(Base):
     __tablename__ = "api_keys"
     key = Column(String, primary_key=True)
-    expire_time = Column(DateTime, nullable=False)
+    expire_time = Column(DateTime(timezone=True), nullable=False)  # ✅ thêm timezone=True
     users = Column(Text, default="[]")  # Lưu dạng JSON string
     max_users = Column(Integer, default=1)
 
@@ -36,21 +36,35 @@ def check_key(key):
         if not api_key:
             return jsonify({"valid": False, "message": "Key is invalid."})
 
-        current_time = datetime.utcnow().replace(tzinfo=timezone.utc)
-        if api_key.expire_time < current_time:
+        # ✅ chuẩn hóa datetime về UTC-aware
+        current_time = datetime.now(timezone.utc)
+
+        expire_time = api_key.expire_time
+        if expire_time.tzinfo is None:  
+            expire_time = expire_time.replace(tzinfo=timezone.utc)
+
+        if expire_time < current_time:
             return jsonify({"valid": False, "message": "Key has expired."})
 
         users_list = json.loads(api_key.users)
         if user in users_list:
-            return jsonify({"valid": True, "time_remaining": (api_key.expire_time - current_time).total_seconds(),
-                            "users": users_list, "max_users": api_key.max_users})
+            return jsonify({
+                "valid": True,
+                "time_remaining": (expire_time - current_time).total_seconds(),
+                "users": users_list,
+                "max_users": api_key.max_users
+            })
 
         if len(users_list) < api_key.max_users:
             users_list.append(user)
             api_key.users = json.dumps(users_list)
             session.commit()
-            return jsonify({"valid": True, "time_remaining": (api_key.expire_time - current_time).total_seconds(),
-                            "users": users_list, "max_users": api_key.max_users})
+            return jsonify({
+                "valid": True,
+                "time_remaining": (expire_time - current_time).total_seconds(),
+                "users": users_list,
+                "max_users": api_key.max_users
+            })
 
         return jsonify({"valid": False, "message": "Max user limit reached."})
     except Exception as e:
@@ -77,12 +91,23 @@ def add_key():
         if session.query(APIKey).filter_by(key=new_key).first():
             return jsonify({"valid": False, "message": "Key already exists."})
 
-        expire_time = datetime.utcnow().replace(tzinfo=timezone.utc) + timedelta(days=expire_months * 30)
-        new_api_key = APIKey(key=new_key, expire_time=expire_time, users=json.dumps([]), max_users=max_users)
+        # ✅ luôn lưu UTC-aware datetime
+        expire_time = datetime.now(timezone.utc) + timedelta(days=expire_months * 30)
+        new_api_key = APIKey(
+            key=new_key,
+            expire_time=expire_time,
+            users=json.dumps([]),
+            max_users=max_users
+        )
         session.add(new_api_key)
         session.commit()
 
-        return jsonify({"valid": True, "message": "Key added.", "key": new_key, "expiration_time": expire_time.isoformat()})
+        return jsonify({
+            "valid": True,
+            "message": "Key added.",
+            "key": new_key,
+            "expiration_time": expire_time.isoformat()
+        })
     except Exception as e:
         print(traceback.format_exc())
         return jsonify({"valid": False, "message": str(e)}), 500
@@ -92,4 +117,3 @@ def add_key():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-
